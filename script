@@ -1,0 +1,347 @@
+/**
+ * Daily Tracker for AdWords
+ * Campaign and AdGroup Performance Comparison Report
+ *
+ * I have created an AdWords script which every campaign manager can use on everyday basis
+ * for optimization. If scheduled daily, this script will update the spreadsheet everyday which will
+ * show the Campaign and AdGroup performance for last 30 days/7 days and its comparison with the 
+ * corresponding previous period.
+ * 
+ * Developed by: Pranav Revankar
+ */
+ 
+ /*Make a copy of the following template spreadsheet 
+ https://docs.google.com/spreadsheets/d/1F0JdXrHIScqV4wq0d1XSzSL1mQSF8jZOfkiBy9w2tlE/edit?usp=sharing 
+ Replace the following url with the copied sheet. */
+var SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1xZVi8ICGlPg9qebXjXDizbun6MrqxrxwHVunLA9TX74/edit#gid=1874174608';
+var html = [];
+function main() {
+  
+  Logger.log('Using spreadsheet - %s.', SPREADSHEET_URL);
+  var spreadsheet = SpreadsheetApp.openByUrl(SPREADSHEET_URL);
+  spreadsheet.setSpreadsheetTimeZone(AdWordsApp.currentAccount().getTimeZone());
+  
+   var sheet0 = spreadsheet.getSheetByName("Campaign 7");
+  sheet0.getRange(1, 22, 1, 1).setValue(new Date());
+  
+   var sheet1 = spreadsheet.getSheetByName("Campaign 30");
+  sheet1.getRange(1, 22, 1, 1).setValue(new Date());
+  
+  var sheet2 = spreadsheet.getSheetByName("AdGroup 7");
+  sheet2.getRange(1, 23, 1, 1).setValue(new Date());
+  
+  var sheet3 = spreadsheet.getSheetByName("AdGroup 30");
+  sheet3.getRange(1, 23, 1, 1).setValue(new Date());
+  
+  var sheet4 = spreadsheet.getSheetByName("AdGroup 1");
+  sheet2.getRange(1, 23, 1, 1).setValue(new Date());
+  
+  var sheet5 = spreadsheet.getSheetByName("Campaign 1");
+  sheet1.getRange(1, 22, 1, 1).setValue(new Date());
+  
+  /* If you want to segregate your campaigns based on location, features, people who handle them etc.
+  Label them accordingly and replace "Label_Name" with your label. Uncomment the line if you are using label */
+  
+  var campaignIterator = AdWordsApp.campaigns()
+  //.withCondition("LabelNames CONTAINS_ANY ['Label_Name']") 
+  .withCondition("Status=ENABLED")
+  .orderBy("CampaignType")
+  .orderBy("CampaignName")
+  .get();
+   
+ var adgroupIterator = AdWordsApp.adGroups()
+  //.withCondition("LabelNames CONTAINS_ANY ['Label_Name']")
+  .withCondition("CampaignStatus=ENABLED") 
+  .withCondition("Status=ENABLED")
+  .orderBy("CampaignType")
+  .orderBy("CampaignName")
+  .get();
+ 
+  var one = getDateStringInPast(1);
+  var seven = getDateStringInPast(7);
+  var eight = getDateStringInPast(8);
+  var fourteen = getDateStringInPast(14);
+  var thirty = getDateStringInPast(30);
+  var thirtyone = getDateStringInPast(31);
+  var sixty = getDateStringInPast(60);
+  var two = getDateStringInPast(2);
+
+  var i = 4;
+  html.push(
+    '<html>',
+      '<body>',
+        '<table width=800 cellpadding=0 border=0 cellspacing=0>',
+          '<tr>',
+             '<td width=500>',
+              "<div style='font: italic normal 10pt Times New Roman, serif; " +
+                  "margin: 0; color: #666; padding-right: 5px;'>" +
+    'Powered By AdWords Scripts</div>',
+    '</td>',
+            '<td align=right>',
+              "<div align=right; style='font: italic normal 10pt Times New Roman, serif; " +
+                  "margin: 0; color: #666; padding-right: 5px;'>" +
+    'Author: Pranav</div>',
+            '</td>',
+          '</tr>',
+          "<tr bgcolor='#3c78d8'>",
+            '<td width=500>',
+              "<div style='font: normal 18pt verdana, sans-serif; " +
+              "padding: 3px 10px; color: white'>Account Summary report</div>",
+            '</td>',
+            '<td align=right>',
+              "<div style='font: normal 18pt verdana, sans-serif; " +
+              "padding: 3px 10px; color: white'>",
+               AdWordsApp.currentAccount().getCustomerId(), '</h1>',
+            '</td>',
+            '</tr>',
+          '</table>')
+   
+     
+  var account= AdWordsApp.currentAccount();
+    var accountstatsLastWeek = account.getStatsFor(seven, one);          
+    var accountstatsTwoWeeksAgo = account.getStatsFor(fourteen, eight);  
+    var accountstatsLastMonth = account.getStatsFor(thirty, one);        
+    var accountstatsTwoMonths = account.getStatsFor(sixty, thirtyone);   
+    var accountstatsYesterday = account.getStatsFor("YESTERDAY");
+    var accountstatsDayBeforeYesterday = account.getStatsFor(two,two);
+  appendEmail(account,accountstatsYesterday,accountstatsDayBeforeYesterday, accountstatsLastWeek,accountstatsTwoWeeksAgo,accountstatsLastMonth,accountstatsTwoMonths)
+  
+  while (campaignIterator.hasNext())
+  {
+    var campaign1 = campaignIterator.next();
+    var statsLastWeek = campaign1.getStatsFor(seven, one);          //collects the stats of last 7 days
+    var statsTwoWeeksAgo = campaign1.getStatsFor(fourteen, eight);  //collects the stats of 7 days before last 7 days
+    var statsLastMonth = campaign1.getStatsFor(thirty, one);        //collects the stat of last 30 days
+    var statsTwoMonths = campaign1.getStatsFor(sixty, thirtyone);   //collects stats of 30 days before last 30 days
+    var statsYesterday = campaign1.getStatsFor("YESTERDAY");
+    var statsDayBeforeYesterday = campaign1.getStatsFor(two,two);
+
+    getstatsforCampaign(campaign1,statsYesterday,statsDayBeforeYesterday,sheet5,i);
+    getstatsforCampaign(campaign1,statsLastMonth,statsTwoMonths,sheet1,i);
+    getstatsforCampaign(campaign1,statsLastWeek,statsTwoWeeksAgo,sheet0,i);
+    appendEmail(campaign1,statsYesterday,statsDayBeforeYesterday, statsLastWeek,statsTwoWeeksAgo,statsLastMonth,statsTwoMonths)
+    i = i+1;
+  }
+  
+  clearCampaign(sheet0,i);
+  clearCampaign(sheet1,i);
+  clearCampaign(sheet5,i);
+  
+  i = 4;
+  
+  while (adgroupIterator.hasNext())
+  {
+    var adgroup1 = adgroupIterator.next();
+    var gstatsTwoWeeksAgo = adgroup1.getStatsFor(fourteen, eight);
+    var gstatsLastWeek = adgroup1.getStatsFor(seven, one);
+    var gstatsLastMonth = adgroup1.getStatsFor(thirty, one);
+    var gstatsTwoMonths = adgroup1.getStatsFor(sixty, thirtyone);
+    var gstatsYesterday = adgroup1.getStatsFor("YESTERDAY");
+    var gstatsDayBeforeYesterday = adgroup1.getStatsFor(two,two);
+    getstatsforAdgroup(adgroup1,gstatsLastWeek,gstatsTwoWeeksAgo,sheet2,i);
+    getstatsforAdgroup(adgroup1,gstatsLastMonth,gstatsTwoMonths,sheet3,i);
+    getstatsforAdgroup(adgroup1,gstatsYesterday,gstatsDayBeforeYesterday,sheet4,i);
+    i = i+1;
+  }
+    
+  clearAdgroup(sheet2,i);
+  clearAdgroup(sheet3,i);
+  clearAdgroup(sheet4,i);
+  sendEmail();
+}
+
+function appendEmail(campaign,d1,d2,w1,w2,m1,m2){
+  html.push(
+    '<table width=800 cellpadding=0 border=0 cellspacing=0>',
+            "<tr bgcolor='#ddd'>",
+              "<td style='font: 12pt verdana, sans-serif; " +
+    'padding: 5px 0px 5px 5px; width:200px; background-color: #ddd; ' +
+                  "text-align: left'>"+campaign.getName()+"</td>",
+              "<td style='font: 12pt verdana, sans-serif; " +
+                  'padding: 5px 0px 5px 5px; width:180px; background-color: #ddd; ' +
+                  "text-align: left'>Yesterday</td>",
+              "<td style='font: 12pt verdana, sans-serif; " +
+                  'padding: 5px 0px 5px 5px; width:180px; background-color: #ddd; ' +
+                  "text-align: left'>7 Days</td>",
+              "<td style='font: 12pt verdana, sans-serif; " +
+                  'padding: 5px 0px 5x 5px; width:180px;  background-color: #ddd; ' +
+                  "text-align: left'>30 Days</td>",
+            '</tr>',
+            emailRow('Clicks', 'Clicks', d1.getClicks(),d2.getClicks(), w1.getClicks(),w2.getClicks(), m1.getClicks(), m2.getClicks()),
+            emailRow('Impressions', 'Impressions', d1.getImpressions(), d2.getImpressions(), w1.getImpressions(),w2.getImpressions(), m1.getImpressions(),m2.getImpressions()),
+            emailRowPercent('CTR', 'CTR', (d1.getCtr()*100).toFixed(2),(d2.getCtr()*100).toFixed(2), (w1.getCtr()*100).toFixed(2),(w2.getCtr()*100).toFixed(2), (m1.getCtr()*100).toFixed(2),(m2.getCtr()*100).toFixed(2)),
+            emailRow('Conversions', 'Conversions', d1.getConversions(),d2.getConversions(), w1.getConversions(),w2.getConversions(), m1.getConversions(), m2.getConversions()),
+            emailRowCost('CPA', 'CPA', (d1.getCost()/d1.getConversions()).toFixed(1), (d2.getCost()/d2.getConversions()).toFixed(1), (w1.getCost()/w1.getConversions()).toFixed(1), (w2.getCost()/w2.getConversions()).toFixed(1),(m1.getCost()/m1.getConversions()).toFixed(1),(m2.getCost()/m2.getConversions()).toFixed(1)),
+            emailRowPercent('Conv. Rate', 'Conv. Rate', (d1.getConversionRate()*100).toFixed(1),(d2.getConversionRate()*100).toFixed(1), (w1.getConversionRate()*100).toFixed(1),(w2.getConversionRate()*100).toFixed(1), (m1.getConversionRate()*100).toFixed(1),(m2.getConversionRate()*100).toFixed(1)),
+            emailRowCost('Avg. CPC', 'Avg. CPC', d1.getAverageCpc().toFixed(2), d2.getAverageCpc().toFixed(2), w1.getAverageCpc().toFixed(2),w2.getAverageCpc().toFixed(2), m1.getAverageCpc().toFixed(2),m2.getAverageCpc().toFixed(2)),
+            emailRow('Avg. Posn', 'Avg. Posn', d1.getAveragePosition().toFixed(1),d2.getAveragePosition().toFixed(1), w1.getAveragePosition().toFixed(1),w2.getAveragePosition().toFixed(1), m1.getAveragePosition().toFixed(1),m2.getAveragePosition().toFixed(1)),
+            emailRowCost('Cost', 'Cost', d1.getCost().toFixed(1),d2.getCost().toFixed(1), w1.getCost().toFixed(1),w2.getCost().toFixed(1), m1.getCost().toFixed(1), m2.getCost().toFixed(1)),
+              '</table>')
+}
+//Code to send the link of spreadsheet to various email_ids. Uncomment if using it
+    //Replace email_id with recipient mail ids
+function sendEmail() {
+  
+  html.push(
+      '</body>',
+        '</html>');
+  var email = ['pranav.revankar@adwyze.com', 'shravani.kalikota@adwyze.com'];      //Replace email_id with recipient mail ids
+for (var i=0; i<2 ;i++)                   //change i to number of recipients
+{   
+  MailApp.sendEmail(email[i], 'AdWords Account ' +
+      AdWordsApp.currentAccount().getCustomerId() + ' Summary Report', '',
+      {htmlBody: html.join('\n')});
+}
+}
+
+function emailRow(title, column, d1, d2, w1,w2,m1,m2) {
+  var d3 = (d1-d2)*100/d2
+  var w3 = (w1-w2)*100/w2
+  var m3 = (m1-m2)*100/m2
+  var html = [];
+  html.push('<tr>',
+      "<td style='padding: 5px 10px'>" + title + '</td>',
+      "<td style='padding: 0px 10px'>" + d1 + "<span style='color: #000000; font-size: 8pt'> (" +
+        d2 + '</span>' + checkSign(d3) +
+        d3.toFixed(1) + "%</span><span style='color: #000000; font-size: 8pt'>)</span>"+'</td>',
+      "<td style='padding: 0px 10px'>" + w1 + "<span style='color: #000000; font-size: 8pt'> (" +
+        w2 + '</span>' + checkSign(w3) +
+        w3.toFixed(1) + "%</span><span style='color: #000000; font-size: 8pt'>)</span>"+'</td>',
+      "<td style='padding: 0px 10px'>" + m1 + "<span style='color: #000000; font-size: 8pt'> (" +
+        m2 + '</span>' + checkSign(m3) +
+        m3.toFixed(1) + "%</span><span style='color: #000000; font-size: 8pt'>)</span>"+'</td>',
+      '</tr>');
+  return html.join('\n');
+}
+
+function emailRowPercent(title, column, d1, d2, w1,w2,m1,m2) {
+  var d3 = (d1-d2)*100/d2
+  var w3 = (w1-w2)*100/w2
+  var m3 = (m1-m2)*100/m2
+  var html = [];
+  html.push('<tr>',
+      "<td style='padding: 5px 10px'>" + title + '</td>',
+      "<td style='padding: 0px 10px'>" + d1 + "%<span style='color: #000000; font-size: 8pt'> (" +
+        d2 + '%</span>' + checkSign(d3) +
+        d3.toFixed(1) + "%</span><span style='color: #000000; font-size: 8pt'>)</span>"+'</td>',
+      "<td style='padding: 0px 10px'>" + w1 + "%<span style='color: #000000; font-size: 8pt'> (" +
+        w2 + '%</span>' + checkSign(w3) +
+        w3.toFixed(1) + "%</span><span style='color: #000000; font-size: 8pt'>)</span>"+'</td>',
+      "<td style='padding: 0px 10px'>" + m1 + "%<span style='color: #000000; font-size: 8pt'> (" +
+        m2 + '%</span>' + checkSign(m3) +
+        m3.toFixed(1) + "%</span><span style='color: #000000; font-size: 8pt'>)</span>"+'</td>',
+      '</tr>');
+  return html.join('\n');
+}
+
+function emailRowCost(title, column, d1, d2, w1,w2,m1,m2) {
+  var d3 = (d1-d2)*100/d2
+  var w3 = (w1-w2)*100/w2
+  var m3 = (m1-m2)*100/m2
+  var html = [];
+  html.push('<tr>',
+      "<td style='padding: 5px 10px'>" + title + '</td>',
+      "<td style='padding: 0px 10px'>$" + d1 + "<span style='color: #000000; font-size: 8pt'> ($" +
+        d2 + '</span>' + checkSign(d3) +
+        d3.toFixed(1) + "%</span><span style='color: #000000; font-size: 8pt'>)</span>"+'</td>',
+      "<td style='padding: 0px 10px'>$" + w1 + "<span style='color: #000000; font-size: 8pt'> ($" +
+        w2 + '</span>' + checkSign(w3) +
+        w3.toFixed(1) + "%</span><span style='color: #000000; font-size: 8pt'>)</span>"+'</td>',
+      "<td style='padding: 0px 10px'>$" + m1 + "<span style='color: #000000; font-size: 8pt'> ($" +
+        m2 + '</span>' + checkSign(m3) +
+        m3.toFixed(1) + "%</span><span style='color: #000000; font-size: 8pt'>)</span>"+'</td>',
+      '</tr>');
+  return html.join('\n');
+}
+  
+
+function checkSign(value){
+  
+  if (value >= 0) {
+    return "<span style='color: #38761d; font-size: 8pt'>, ";
+  } else {
+    return "<span style='color: #cc0000; font-size: 8pt'>, ";
+  }
+}
+
+
+function getstatsforCampaign(campaign, time1, time2, sheet,i){
+    sheet.getRange(i, 1).setValue(campaign.getName());
+    sheet.getRange(i, 2).setValue(time1.getClicks());
+    sheet.getRange(i, 3).setValue(time2.getClicks());
+    sheet.getRange(i, 5).setValue(time1.getImpressions());
+    sheet.getRange(i, 6).setValue(time2.getImpressions());
+    sheet.getRange(i, 8).setValue(time1.getCtr());
+    sheet.getRange(i, 9).setValue(time2.getCtr());
+    sheet.getRange(i, 11).setValue(time1.getConversions());
+    sheet.getRange(i, 12).setValue(time2.getConversions());
+    sheet.getRange(i, 17).setValue(time1.getConversionRate());
+    sheet.getRange(i, 18).setValue(time2.getConversionRate());
+    sheet.getRange(i, 20).setValue(time1.getAverageCpc());
+    sheet.getRange(i, 21).setValue(time2.getAverageCpc());
+    sheet.getRange(i, 23).setValue(time1.getAveragePosition());
+    sheet.getRange(i, 24).setValue(time2.getAveragePosition());
+    sheet.getRange(i, 26).setValue(time1.getCost());
+    sheet.getRange(i, 27).setValue(time2.getCost());
+  
+  }
+
+
+function getstatsforAdgroup(adgroup, time1, time2, sheet,i){
+  sheet.getRange(i,1).setValue(adgroup.getCampaign().getName());
+   sheet.getRange(i, 2).setValue(adgroup.getName());
+    sheet.getRange(i, 3).setValue(time1.getClicks());
+    sheet.getRange(i, 4).setValue(time2.getClicks());
+    sheet.getRange(i, 6).setValue(time1.getImpressions());
+    sheet.getRange(i, 7).setValue(time2.getImpressions());
+    sheet.getRange(i, 9).setValue(time1.getCtr());
+    sheet.getRange(i, 10).setValue(time2.getCtr());
+    sheet.getRange(i, 12).setValue(time1.getConversions());
+    sheet.getRange(i, 13).setValue(time2.getConversions());
+    sheet.getRange(i, 18).setValue(time1.getConversionRate());
+    sheet.getRange(i, 19).setValue(time2.getConversionRate());
+    sheet.getRange(i, 21).setValue(time1.getAverageCpc());
+    sheet.getRange(i, 22).setValue(time2.getAverageCpc());
+    sheet.getRange(i, 24).setValue(time1.getAveragePosition());
+    sheet.getRange(i, 25).setValue(time2.getAveragePosition());
+    sheet.getRange(i, 27).setValue(time1.getCost());
+    sheet.getRange(i, 28).setValue(time2.getCost());
+}
+  
+function clearCampaign(sheet, i){
+  var MAX_Campaigns=100;        //Highest possible number of Campaigns you would track
+  sheet.getRange(i, 1, MAX_Campaigns,3).clearContent();
+  sheet.getRange(i, 5, MAX_Campaigns,2).clearContent();
+  sheet.getRange(i, 8, MAX_Campaigns,2).clearContent();
+  sheet.getRange(i, 11, MAX_Campaigns,2).clearContent();
+  sheet.getRange(i, 17, MAX_Campaigns,2).clearContent();
+  sheet.getRange(i, 20, MAX_Campaigns,2).clearContent();
+  sheet.getRange(i, 23, MAX_Campaigns,2).clearContent();
+  sheet.getRange(i, 26, MAX_Campaigns,2).clearContent();
+  }
+
+function clearAdgroup(sheet, i){
+  var MAX_AdGroup=500;      //Highest possible number of Adgroups you would track
+  sheet.getRange(i, 1, MAX_AdGroup,4).clearContent();
+  sheet.getRange(i, 6, MAX_AdGroup,2).clearContent();
+  sheet.getRange(i, 9, MAX_AdGroup,2).clearContent();
+  sheet.getRange(i, 12, MAX_AdGroup,2).clearContent();
+  sheet.getRange(i, 18, MAX_AdGroup,2).clearContent();
+  sheet.getRange(i, 21, MAX_AdGroup,2).clearContent();
+  sheet.getRange(i, 24, MAX_AdGroup,2).clearContent();
+  sheet.getRange(i, 27, MAX_AdGroup,2).clearContent();
+  }
+  
+
+function getDateStringInPast(numDays, date) {
+  date = date || new Date();
+  var MILLIS_PER_DAY = 1000 * 60 * 60 * 24 ;
+  var past = new Date(date.getTime() - numDays * MILLIS_PER_DAY);
+  return getDateStringInTimeZone('yyyyMMdd', past);
+}
+
+function getDateStringInTimeZone(format, date, timeZone) {
+  date = date || new Date();
+  timeZone = timeZone || AdWordsApp.currentAccount().getTimeZone();
+  return Utilities.formatDate(date, timeZone, format);
+}
